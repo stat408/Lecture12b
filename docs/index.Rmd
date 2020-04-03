@@ -1,0 +1,146 @@
+---
+title: "Week 13b: SQL"
+output:
+  revealjs::revealjs_presentation:
+    theme: white
+    center: true
+    transition: none
+    incremental: true
+---
+
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(knitr)
+library(rvest)
+library(stringr)
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(eval = T)
+```
+
+# SQL
+
+## SQL Overview
+
+- Generally SQL servers are created to host a large amound of data. 
+- For this class we will use SQLite which enables users to store database files locally, but the principles are the same for querying a server-based database.
+
+## Baseball Data
+
+We will use the baseball database  [https://www.kaggle.com/seanlahman/the-history-of-baseball](https://www.kaggle.com/seanlahman/the-history-of-baseball). Recall we used this earlier in the class with `dplyr` commands. There is a SQLite database file that you can directly access, but instead we will build our own SQLite database.
+
+## Building Database: 1. Read in Data
+
+```{r}
+library(readr)
+library(dplyr)
+player <- read_csv('https://raw.githubusercontent.com/stat408/Lecture12b/master/player.csv')
+batting <- read_csv('https://raw.githubusercontent.com/stat408/Lecture12b/master/batting.csv')
+
+batting <- batting %>% select(-sf, -g_idp)
+
+```
+
+
+## Building Database: 2. Establish Database
+```{r}
+library(RSQLite)
+
+db_connection <- dbConnect(SQLite(), "practice_DB.db")
+
+```
+
+## Building Database: 3. Add Tables
+```{r, eval = T}
+dbWriteTable(db_connection, "batting", batting, overwrite = T)
+dbWriteTable(db_connection, "player", player, overwrite = T)
+dbListTables(db_connection)
+
+```
+
+
+
+## Building Database: 4. Fields in Tables
+```{r}
+dbListFields(db_connection, "batting")
+dbDisconnect(db_connection)
+```
+
+# SQL commands
+
+## SQL commands
+
+The most basic SQL queries have the following structure:
+
+- **SELECT** var1name, var2name (filter columns)
+- **FROM** tablename (identify table)
+- **WHERE** condition1 (filter rows)
+- **GROUP_BY** var3name (aggregate data)
+- **HAVING** condition2 (filter aggregated data)
+- **ORDER_BY** var (arrange ordering)
+
+
+## SQL commands
+
+SQL also allows join operators: 
+
+- **INNER JOIN** 
+- **OUTER JOIN** 
+- **LEFT JOIN**
+- **FULL JOIN** 
+
+
+
+## SQL Query 1
+Select all columns for player
+```{r}
+db_connection <- dbConnect(SQLite(), "practice_DB.db")
+dbGetQuery(db_connection,"SELECT * 
+                          FROM Player")
+```
+
+## SQL Query 2
+Select name_first, name_last for all players for your birthday
+```{r}
+dbGetQuery(db_connection,
+"SELECT name_first, name_last
+FROM player 
+WHERE birth_month = 10 AND birth_day = 15")
+```
+
+## SQL Query 3
+Compute average weight for players born on your birthday 
+```{r}
+dbGetQuery(db_connection,
+"SELECT AVG(weight) 
+FROM player 
+WHERE birth_month = 10 AND birth_day = 15")
+```
+
+## SQL Query 4: Part 1
+Compute the total number of homeruns hit for players born on your birthday 
+```{r}
+dbExecute(db_connection,
+"CREATE TABLE birthday as
+SELECT name_first, name_last, player_id
+FROM player 
+WHERE birth_month = 10 AND birth_day = 15")
+
+dbListTables(db_connection)
+```
+
+
+
+## SQL Query 4: Part 2
+Compute the total number of homeruns hit for players born on your birthday 
+
+```{r}
+dbGetQuery(db_connection,
+"SELECT SUM(hr)
+FROM birthday as bd
+LEFT JOIN batting as b
+ON bd.player_id = b.player_id
+")
+```
+
+
